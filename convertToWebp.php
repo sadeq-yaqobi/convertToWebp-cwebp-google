@@ -1,51 +1,67 @@
 <?php
+// Display a message to indicate the script has started.
+echo "Starting WebP conversion...\n";
+
 /**
- * Converts images from a source directory to WebP format and saves them in an output directory.
+ * Converts images from JPG, JPEG, or PNG format to WebP.
  *
- * @param string $sourceDir The directory where the source images (jpg, jpeg, png) are located.
- * @param string $outputDir The directory where the converted WebP images will be saved. If the directory doesn't exist, it will be created.
- * @param int $quality The quality of the WebP images, ranging from 0 (lowest) to 100 (highest). Defaults to 80 for a balance between quality and compression.
- * @param string $options Additional options for the cwebp command-line tool, such as -lossless, -resize width height, -near_lossless, and -m (compression method). Defaults to an empty string.
-          * -lossless: If you're converting a PNG file and want a lossless WebP image, you can add the -lossless flag.
-          * -resize width height: Resize the image to the specified width and height during conversion.
-          * -near_lossless: This option gives you a near-lossless compression, which provides a balance between compression and quality.
-          * -m: Sets the compression method (0 = fastest, 6 = best). The higher the method, the better the compression but at the cost of processing time.
- *
- * This function:
- * - Scans the $sourceDir for all images with extensions .jpg, .jpeg, and .png.
- * - Converts each image to WebP format using the cwebp tool.
- * - Saves the converted images in the $outputDir with the same filename but a .webp extension.
- * - Outputs a success or error message for each image conversion.
+ * @param string $sourceDir Directory containing source images.
+ * @param string $outputDir Directory where converted WebP images will be saved.
+ * @param int $quality Quality of the WebP images (default: 80).
+ * @param string $options Additional options for the cwebp command.
  */
 function convertToWebP(string $sourceDir, string $outputDir, int $quality = 80, string $options = '') {
-    // Check if the output directory exists; if not, create it with appropriate permissions.
-    if (!is_dir($outputDir)) {
-        mkdir($outputDir, 0777, true);
+    // Check if the source directory exists, otherwise exit with an error.
+    if (!is_dir($sourceDir)) {
+        die("Error: Source directory does not exist: $sourceDir\n");
     }
 
-    // Find all jpg, jpeg, and png files in the source directory.
+    // Create the output directory if it doesn't exist.
+    if (!is_dir($outputDir)) {
+        mkdir($outputDir, 0777, true);
+        echo "Created output directory: $outputDir\n";
+    }
+
+    // Find all images with jpg, jpeg, or png extensions in the source directory.
     $images = glob("$sourceDir/*.{jpg,jpeg,png}", GLOB_BRACE);
 
-    // Loop through each image and convert it to WebP format.
+    // If no images are found, exit with a message.
+    if (!$images) {
+        die("No images found in $sourceDir\n");
+    }
+
+    // Loop through each found image and convert it to WebP format.
     foreach ($images as $image) {
-        // Get image information, including directory, filename, and extension.
+        // Extract image details: directory, filename, and extension.
         $imageInfo = pathinfo($image);
-        // Define the output file path and name (same as input, but with .webp extension).
+        // Define the output WebP file path (same name, different extension).
         $outputFile = $outputDir . '/' . $imageInfo['filename'] . '.webp';
+
+        // Print which image is being converted.
+        echo "Converting {$imageInfo['basename']}...\n";
+
         // Construct the cwebp command with quality, options, input file, and output file.
         $command = "cwebp -q $quality $options {$imageInfo['dirname']}/{$imageInfo['basename']} -o $outputFile";
+        exec($command, $output, $return_var); // Execute the command.
 
-        // Execute the command and capture the output and return status.
-        exec($command, $output, $return_var);
-
-        // Check if the command was successful (return status 0) or failed.
+        // Check if the command executed successfully.
         if ($return_var !== 0) {
-            echo "Error converting {$imageInfo['basename']} to WebP\n";
+            echo "❌ Error converting {$imageInfo['basename']} to WebP\n";
         } else {
-            echo "{$imageInfo['basename']} converted successfully to WebP\n";
+            echo "✅ Successfully converted: $outputFile\n";
         }
     }
 }
 
-// convertToWebp function runs when you call convertToWebp.php in project's root terminal
-convertToWebP('assets/img', 'assets/img/webp');
+// Ensure the script is called with correct arguments.
+if ($argc < 3) {
+    die("Usage: php convertToWebp.php source_directory output_directory [quality]\n");
+}
+
+// Get command-line arguments: source directory, output directory, and optional quality.
+$sourceDir = $argv[1];
+$outputDir = $argv[2];
+$quality = $argv[3] ?? 80; // Default quality is 80 if not provided.
+
+// Call the conversion function.
+convertToWebP($sourceDir, $outputDir, $quality);
